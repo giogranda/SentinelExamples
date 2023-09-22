@@ -1,7 +1,10 @@
+#EGP policy meant to check the metadata values for KV
+
 validate_metadata = func() {
 
   # Print some information about the request
   # Note that these messages will only be printed when the policy is violated
+
   #print("Namespace path:", namespace.path)
   #print("Request path:", request.path)
   #print("Request data:", request.data)
@@ -9,15 +12,18 @@ validate_metadata = func() {
   #print("METADATA:", keys(request.data.custom_metadata))
   #print(request.data.custom_metadata)
   #print(request.data.custom_metadata["secret-type"])
-  
+
+#Valid secret types in metadata
   valid_secret_types = [
     "DB","API","CERT"]
-  
+
+#Validate secret-type value has been specificed
   if "custom_metadata" in keys(request.data) {
     if keys(request.data.custom_metadata) not contains "secret-type" { 
       print("Invalid metadata, must contain secret-type")
       return false
     }
+#Validate secret-type value has been populated with an appropriate value
     if request.data.custom_metadata["secret-type"] not in valid_secret_types { 
       print("Invalid Secret Type in metadata")
       print(request.data.custom_metadata["secret-type"])
@@ -25,15 +31,13 @@ validate_metadata = func() {
       print(valid_secret_types)
       return false
     }
+#Validate secret-purpose value has been specificed
     if keys(request.data.custom_metadata) not contains "secret-purpose" {
       print("Invalid metadata, must contain secret-purpose")
       return false
     }
   }
-
-   
   return true
-
 }
 
 # Main Rule
