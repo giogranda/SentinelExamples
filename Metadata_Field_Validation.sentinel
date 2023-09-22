@@ -7,13 +7,24 @@ validate_metadata = func() {
   #print("Request data:", request.data)
   #print("DATA:", keys(request.data))
   #print("METADATA:", keys(request.data.custom_metadata))
+  #print(request.data.custom_metadata)
+  #print(request.data.custom_metadata["secret-type"])
+  
+  valid_secret_types = [
+    "DB","API","CERT"]
   
   if "custom_metadata" in keys(request.data) {
     if keys(request.data.custom_metadata) not contains "secret-type" { 
       print("Invalid metadata, must contain secret-type")
       return false
     }
-
+    if request.data.custom_metadata["secret-type"] not in valid_secret_types { 
+      print("Invalid Secret Type in metadata")
+      print(request.data.custom_metadata["secret-type"])
+      print("Secret-type value needs to be:")
+      print(valid_secret_types)
+      return false
+    }
     if keys(request.data.custom_metadata) not contains "secret-purpose" {
       print("Invalid metadata, must contain secret-purpose")
       return false
