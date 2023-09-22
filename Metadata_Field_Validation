@@ -1,0 +1,32 @@
+validate_metadata = func() {
+
+  # Print some information about the request
+  # Note that these messages will only be printed when the policy is violated
+  #print("Namespace path:", namespace.path)
+  #print("Request path:", request.path)
+  #print("Request data:", request.data)
+  #print("DATA:", keys(request.data))
+  #print("METADATA:", keys(request.data.custom_metadata))
+  
+  if "custom_metadata" in keys(request.data) {
+    if keys(request.data.custom_metadata) not contains "secret-type" { 
+      print("Invalid metadata, must contain secret-type")
+      return false
+    }
+
+    if keys(request.data.custom_metadata) not contains "secret-purpose" {
+      print("Invalid metadata, must contain secret-purpose")
+      return false
+    }
+  }
+
+   
+  return true
+
+}
+
+# Main Rule
+metadata_validated = validate_metadata()
+main = rule {
+  metadata_validated
+}
