@@ -1,0 +1,46 @@
+# Policy that evaluates kv value entry
+# For use with Vault KV v2 secrets engines
+
+# Function that validates zip codes
+validate_kv_value = func() {
+
+  # Print some information about the request
+  # Note that these messages will only be printed when the policy is violated
+  #print("Namespace path:", namespace.path)
+  #print("Request path:", request.path)
+  #print("Request data:", request.data)
+  #print("KV VALUE:", request.data.data)
+  
+  # Test for request.data.data for kv v2
+    
+  for request.data.data as key, value {
+    print("KEY:", key)
+    print("VALUE:", value)
+    if (length(value) < 8 ) {
+      print("Secret should be greater than 8 characters")
+      print("Length found:", length(value))
+      print("Secret found:", value)
+      return false
+    }
+    if value not matches "[A-Z]{2}" {
+      print("Missing at least two uppercase")
+      return false
+    }
+    if value not matches "[a-z]{2}" {
+      print("Missing at least two lowercase")
+      return false
+    }
+    if value not matches "[\\!@#\\$%\\^&\\*\\(\\)\\-=_\\+\\[\\]{};':\",\\.\\/\\?]" {
+      print("Missing special character")
+      return false
+    }      
+   }
+  return true
+
+}
+
+# Main Rule
+kv_validated = validate_kv_value()
+main = rule {
+  kv_validated
+}
