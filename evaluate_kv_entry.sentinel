@@ -14,6 +14,7 @@ validate_kv_value = func() {
   # Test for request.data.data for kv v2
     
   for request.data.data as key, value {
+  # Note that these messages will only be printed when the policy is violated
     print("KEY:", key)
     print("VALUE:", value)
     if (length(value) < 8 ) {
