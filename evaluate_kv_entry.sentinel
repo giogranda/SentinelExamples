@@ -1,7 +1,6 @@
 # Policy that evaluates kv value entry
 # For use with Vault KV v2 secrets engines
 
-# Function that validates zip codes
 validate_kv_value = func() {
 
   # Print some information about the request
