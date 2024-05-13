@@ -1,0 +1,31 @@
+# Function that validates the request is related to mounting kv secret egines
+prevent_extra_data_path_in_kv = func() {
+
+  # Print some information about the request
+  # Note that these messages will only be printed when the policy is violated
+  #print("Namespace path:", namespace.path)
+  #print("Request path:", request.path)
+  #print("Request data:", request.data)
+
+  # Validate that path includes sys/mounts
+  if request.path matches "^(.*)sys\\/mounts\\/(.*)\\/data$" and
+     ("type" in keys(request.data) and request.data.type is "kv") and
+     request.operation in ["create", "update"] {
+    print("\nType of secrets engine:", request.data.type, "\n")
+    if (request.data.options else null is null) or 
+       ("version" in keys(request.data.options) and request.data.options.version is "1") {
+      print("Please do not add \"/data\" to the end of the mount path")
+      return false
+    }
+    return true
+  }
+
+  return true
+
+}
+
+# Main Rule
+secrets_engines_validated = prevent_extra_data_path_in_kv()
+main = rule {
+  secrets_engines_validated
+}
