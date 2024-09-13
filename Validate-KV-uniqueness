@@ -1,0 +1,144 @@
+import "http"
+import "json"
+import "strings"
+
+vault_addr = "${vault_addr}"
+role_id = "${role_id}"
+secret_id = "${secret_id}"
+approle_mount_path = "${approle_mount_path}"
+this_namespace = strings.trim_suffix(namespace.path, "/")
+
+vault_login = func() {
+  req_path = "/v1/auth/" + approle_mount_path + "/login"
+  req = http.request(vault_addr + req_path).
+    with_header("X-Vault-Namespace", this_namespace).
+    with_body(json.marshal({"role_id": role_id, "secret_id": secret_id}))
+
+  resp = http.accept_status_codes([200, 429]).without_certificate_verification().post(req)
+  if resp.status_code is 429 {
+    print(json.unmarshal(resp.body))
+    return false
+  }
+  body = json.unmarshal(resp.body)
+  return body["auth"]["client_token"]
+}
+
+verify_password_requirements = func(password) {
+  score = 0
+
+  if (length(password) < 8 or length(password) > 20) {
+    print("Password should be between 8 and 20 characters.")
+    score += 1
+  }
+
+  if !(password matches "[a-z]") {
+    print("Password should contain at least one lowercase letter.")
+    score += 1
+  }
+
+  if !(password matches "[A-Z]") {
+    print("Password should contain at least one uppercase letter.")
+    score += 1
+  }
+
+  if !(password matches "[0-9]") {
+    print("Password should contain at least one number.")
+    score += 1
+  }
+  
+  if !(password matches "[\\!@#\\$%\\^&\\*\\(\\)\\-=_\\+\\[\\]{};':\",\\.\\/\\?]") {
+    print("Password should contain at least one special character.")
+    score += 1
+  }
+
+  return score
+}
+
+verify_metadata = func(token, value) {
+  new_path = []
+  path_split = strings.split(request.path, "/")
+  for path_split as p {
+    if p is "data" {
+      p = "metadata"
+    }
+    append(new_path, p)
+  }
+  metadata_path = "/v1/" + strings.join(new_path, "/")
+  
+  req = http.request(vault_addr + metadata_path).
+    with_header("X-Vault-Token", token).
+    with_header("X-Vault-Namespace", this_namespace)
+  resp = http.accept_status_codes([200, 404, 429]).without_certificate_verification().get(req)
+  
+  if resp.status_code is 404 {
+    return true
+  }
+
+  if resp.status_code is 429 {
+    print(json.unmarshal(resp.body))
+    return false
+  }
+
+  metadata = json.unmarshal(resp.body)
+  custom_metadata = metadata.data.custom_metadata
+
+  if custom_metadata is not null {
+    for custom_metadata as k, v {
+      if k is "secret_type" {
+        if v is "password" {
+          if verify_password_requirements(value) > 0 {
+            return false
+          }
+        }
+      }
+    }
+  }
+  return true
+}
+
+validate_kv = func() {
+  token = vault_login()
+  if token is false {
+    return false
+  }
+  
+  req_path = "/v1/" + request.path
+  req = http.request(vault_addr + req_path).
+    with_header("X-Vault-Token", token).
+    with_header("X-Vault-Namespace", this_namespace)
+  resp = http.accept_status_codes([200, 404, 429]).without_certificate_verification().get(req)
+
+  if resp.status_code is 404 {
+    return true
+  }
+
+  if resp.status_code is 429 {
+    print(json.unmarshal(resp.body))
+    return false
+  }
+
+  current_kv_content = json.unmarshal(resp.body)
+  for request.data.data as k, v {
+    for current_kv_content.data.data as x, y {
+      if k is x {
+        if v is y {
+          print("FOUND_VALUE_MATCH_ON_KEY:", k)
+          return false
+        }
+      }
+    }
+    if verify_metadata(token, v) is false {
+      return false
+    }
+  }
+
+  return true
+}
+
+precond = rule {
+  request.operation is "update" or request.operation is "patch"
+}
+
+main = rule when precond {
+  validate_kv()
+}
